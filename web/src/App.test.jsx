@@ -1,0 +1,14 @@
+import React from 'react';
+import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
+import {afterEach,beforeEach,expect,test,vi} from 'vitest';
+import App from './App.jsx';
+import {request} from './api.js';
+vi.mock('./api.js',()=>({request:vi.fn()}));
+const slot={id:'se-1',clinician:'clinician-se',language:'en',starts:'2026-10-02T08:00:00Z'};
+beforeEach(()=>{request.mockReset();request.mockImplementation(path=>Promise.resolve(path.startsWith('/slots')?[slot]:[]));});
+afterEach(cleanup);
+test('renders matching appointments and disables booking until selection',async()=>{render(<App/>);await screen.findByText(/clinician-se/);expect(screen.getByText('Book selected appointment')).toBeDisabled();fireEvent.click(screen.getByRole('radio'));expect(screen.getByText('Book selected appointment')).toBeEnabled();});
+test('sends matching booking facts',async()=>{render(<App/>);await screen.findByRole('radio');fireEvent.click(screen.getByRole('radio'));fireEvent.click(screen.getByText('Book selected appointment'));await waitFor(()=>expect(request).toHaveBeenCalledWith('/bookings',{slot:'se-1',need:{patient:'synthetic-patient',market:'SE',specialty:'GP',language:'en'}}));});
+test('shows server conflict without removing the form',async()=>{request.mockImplementation(path=>path==='/bookings'?Promise.resolve([]):path.startsWith('/slots')?Promise.resolve([slot]):Promise.reject(new Error('conflict')));render(<App/>);await screen.findByRole('radio');request.mockImplementation(path=>path==='/bookings'?Promise.reject(new Error('Slot occupied')):Promise.resolve([slot]));fireEvent.click(screen.getByRole('radio'));fireEvent.click(screen.getByText('Book selected appointment'));expect(await screen.findByRole('alert')).toHaveTextContent('Slot occupied');});
+test('shows empty availability',async()=>{request.mockResolvedValue([]);render(<App/>);expect(await screen.findByText('No matching appointments.')).toBeInTheDocument();});
+test('refreshes eligibility when market changes',async()=>{render(<App/>);await screen.findByRole('radio');fireEvent.change(screen.getByLabelText('Market'),{target:{value:'NO'}});await waitFor(()=>expect(request).toHaveBeenCalledWith('/slots?market=NO&specialty=GP&language=en'));expect(screen.getByText('Book selected appointment')).toBeDisabled();});
