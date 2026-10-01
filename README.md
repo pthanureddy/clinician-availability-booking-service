@@ -34,7 +34,7 @@ locking and retry deadlocks, add database constraints and durable domain events.
 
 ## Setup, test and run
 
-Requires Java 17+, Node.js 22+ and network access for Maven/npm dependencies.
+Requires Java 17+, Node.js 22.12+ and network access for Maven/npm dependencies.
 
 ```powershell
 .\mvnw.cmd --batch-mode clean verify
